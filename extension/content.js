@@ -1,16 +1,36 @@
 // content.js - Autonomous Webmail (Gmail, Outlook) & In-Page Phishing Guardian
 
-const API_ENDPOINT = "https://vit-phishing-detector-api.onrender.com";
-
-// Set to track already scanned message IDs/containers
+// Track scanned elements and last analyzed email
 const scannedContainers = new WeakSet();
+let lastScannedEmailData = null;
 
-// 1. Initialize MutationObserver to watch for opened emails
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "GET_CURRENT_EMAIL_DATA") {
+    // If we have an open email on screen, return its exact data
+    const emailInfo = extractCurrentEmailOnScreen();
+    sendResponse({
+      isEmailView: !!emailInfo,
+      emailData: emailInfo,
+      lastResult: lastScannedEmailData ? lastScannedEmailData.result : null
+    });
+    return true;
+  }
+});
+
+// Debounced mutation observer to watch for opened emails
+let debounceTimer = null;
 const observer = new MutationObserver((mutations) => {
-  for (const mutation of mutations) {
-    if (mutation.addedNodes.length > 0) {
-      checkForEmailContent();
+  let hasRelevantChange = false;
+  for (const m of mutations) {
+    if (m.addedNodes.length > 0) {
+      hasRelevantChange = true;
+      break;
     }
+  }
+  if (hasRelevantChange) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(checkForEmailContent, 400);
   }
 });
 
@@ -19,19 +39,16 @@ observer.observe(document.body, {
   subtree: true
 });
 
-// Run immediate check on initial load
-setTimeout(checkForEmailContent, 1000);
+// Initial scan
+setTimeout(checkForEmailContent, 800);
 
-// Detect email containers across Gmail, Outlook, and webmail clients
+// Check if an email is currently open on screen
 function checkForEmailContent() {
   const host = window.location.hostname;
-
   if (host.includes("mail.google.com")) {
     inspectGmailMessages();
   } else if (host.includes("outlook.live.com") || host.includes("outlook.office")) {
     inspectOutlookMessages();
-  } else {
-    inspectGenericEmailContainers();
   }
 }
 
@@ -39,35 +56,45 @@ function checkForEmailContent() {
 // GMAIL DETECTOR
 // -------------------------------------------------------------
 function inspectGmailMessages() {
-  // Gmail email body containers typically have class .a3s.aiL
+  // Target only the primary open email body
   const emailBodies = document.querySelectorAll("div.a3s.aiL, div[dir='ltr'].a3s");
   emailBodies.forEach((bodyEl) => {
+    // Skip if element is not visible or already scanned
     if (scannedContainers.has(bodyEl) || bodyEl.getAttribute("data-vit-guardian-scanned")) {
       return;
     }
 
-    // Must have readable text
+    // Skip hidden or tiny quote containers
+    if (bodyEl.offsetWidth === 0 || bodyEl.offsetHeight === 0) return;
     const textContent = bodyEl.innerText.trim();
-    if (textContent.length < 15) return;
+    if (textContent.length < 20) return;
 
-    // Find parent message wrapper
+    // Find parent message container
     const messageContainer = bodyEl.closest(".adn, .ii.gt, .ha") || bodyEl.parentElement;
+    if (!messageContainer) return;
 
-    // Extract Subject line
+    // Check if a banner is already injected in this container
+    if (messageContainer.querySelector(".vit-guardian-email-banner")) {
+      scannedContainers.add(bodyEl);
+      bodyEl.setAttribute("data-vit-guardian-scanned", "true");
+      return;
+    }
+
+    // Extract Subject Line
     const subjectEl = document.querySelector("h2.hP") || document.querySelector("div.ha h2");
     const subject = subjectEl ? subjectEl.innerText.trim() : "";
 
-    // Extract Sender info
+    // Extract Sender Information
     const senderEl = messageContainer.querySelector("span.gD, span[email]") || document.querySelector("span.gD");
     const senderName = senderEl ? senderEl.innerText.trim() : "";
-    const senderEmail = senderEl ? senderEl.getAttribute("email") || "" : "";
+    const senderEmail = senderEl ? (senderEl.getAttribute("email") || "") : "";
     const sender = senderEmail ? `${senderName} <${senderEmail}>` : senderName;
 
     // Mark as scanned
     scannedContainers.add(bodyEl);
     bodyEl.setAttribute("data-vit-guardian-scanned", "true");
 
-    // Run prediction
+    // Perform threat analysis
     analyzeAndInjectBanner({
       subject,
       sender,
@@ -84,18 +111,22 @@ function inspectGmailMessages() {
 function inspectOutlookMessages() {
   const messageBodies = document.querySelectorAll("div[aria-label='Message body'], div.ReadingPaneContents");
   messageBodies.forEach((bodyEl) => {
-    if (scannedContainers.has(bodyEl) || bodyEl.getAttribute("data-vit-guardian-scanned")) {
+    if (scannedContainers.has(bodyEl) || bodyEl.getAttribute("data-vit-guardian-scanned")) return;
+    if (bodyEl.offsetWidth === 0 || bodyEl.offsetHeight === 0) return;
+
+    const textContent = bodyEl.innerText.trim();
+    if (textContent.length < 20) return;
+
+    const containerEl = bodyEl.parentElement;
+    if (containerEl && containerEl.querySelector(".vit-guardian-email-banner")) {
+      scannedContainers.add(bodyEl);
+      bodyEl.setAttribute("data-vit-guardian-scanned", "true");
       return;
     }
 
-    const textContent = bodyEl.innerText.trim();
-    if (textContent.length < 15) return;
-
-    // Extract subject
     const subjectEl = document.querySelector("[role='heading'][aria-level='2'], div[data-testid='ReadingPane'] h2");
     const subject = subjectEl ? subjectEl.innerText.trim() : "";
 
-    // Extract sender
     const senderEl = document.querySelector("div[data-testid='senderPersona'] span, span.l8Tnu");
     const sender = senderEl ? senderEl.innerText.trim() : "";
 
@@ -107,79 +138,118 @@ function inspectOutlookMessages() {
       sender,
       body: textContent,
       targetEl: bodyEl,
-      containerEl: bodyEl.parentElement
+      containerEl: containerEl || bodyEl.parentElement
     });
   });
 }
 
 // -------------------------------------------------------------
-// GENERIC WEBMAIL / UNIVERSITY PORTAL DETECTOR
+// EXTRACT EMAIL FOR POPUP SYNCHRONIZATION
 // -------------------------------------------------------------
-function inspectGenericEmailContainers() {
-  const genericContainers = document.querySelectorAll(".message-body, .mail-body, #message-content, .email-content");
-  genericContainers.forEach((bodyEl) => {
-    if (scannedContainers.has(bodyEl) || bodyEl.getAttribute("data-vit-guardian-scanned")) return;
-    const textContent = bodyEl.innerText.trim();
-    if (textContent.length < 20) return;
+function extractCurrentEmailOnScreen() {
+  const host = window.location.hostname;
+  if (host.includes("mail.google.com")) {
+    const bodyEl = document.querySelector("div.a3s.aiL, div[dir='ltr'].a3s");
+    if (!bodyEl) return null;
 
-    scannedContainers.add(bodyEl);
-    bodyEl.setAttribute("data-vit-guardian-scanned", "true");
+    const subjectEl = document.querySelector("h2.hP") || document.querySelector("div.ha h2");
+    const subject = subjectEl ? subjectEl.innerText.trim() : "";
 
-    analyzeAndInjectBanner({
-      subject: document.title || "",
-      sender: "",
-      body: textContent,
-      targetEl: bodyEl,
-      containerEl: bodyEl.parentElement
+    const senderEl = document.querySelector("span.gD, span[email]");
+    const senderName = senderEl ? senderEl.innerText.trim() : "";
+    const senderEmail = senderEl ? (senderEl.getAttribute("email") || "") : "";
+    const sender = senderEmail ? `${senderName} <${senderEmail}>` : senderName;
+
+    const urls = [];
+    bodyEl.querySelectorAll("a[href]").forEach(a => {
+      const h = a.href;
+      if (h && (h.startsWith("http://") || h.startsWith("https://"))) urls.push(h);
     });
-  });
+
+    return {
+      subject,
+      sender,
+      body: bodyEl.innerText.trim(),
+      urls: urls.slice(0, 10),
+      isEmail: true
+    };
+  }
+
+  if (host.includes("outlook.live.com") || host.includes("outlook.office")) {
+    const bodyEl = document.querySelector("div[aria-label='Message body'], div.ReadingPaneContents");
+    if (!bodyEl) return null;
+
+    const subjectEl = document.querySelector("[role='heading'][aria-level='2']");
+    const subject = subjectEl ? subjectEl.innerText.trim() : "";
+
+    const senderEl = document.querySelector("div[data-testid='senderPersona'] span, span.l8Tnu");
+    const sender = senderEl ? senderEl.innerText.trim() : "";
+
+    return {
+      subject,
+      sender,
+      body: bodyEl.innerText.trim(),
+      urls: [],
+      isEmail: true
+    };
+  }
+
+  return null;
 }
 
 // -------------------------------------------------------------
 // THREAT ANALYSIS & BANNER INJECTION
 // -------------------------------------------------------------
-async function analyzeAndInjectBanner({ subject, sender, body, targetEl, containerEl }) {
-  // Show a discreet loading badge while predicting
-  const loadingBadge = document.createElement("div");
-  loadingBadge.className = "vit-guardian-email-banner banner-low";
-  loadingBadge.innerHTML = `
+function analyzeAndInjectBanner({ subject, sender, body, targetEl, containerEl }) {
+  // 1. Create Loading Placeholder
+  const loadingBanner = document.createElement("div");
+  loadingBanner.className = "vit-guardian-email-banner banner-low";
+  loadingBanner.innerHTML = `
     <div class="vit-banner-header">
       <div class="vit-banner-branding">
         <div class="vit-shield-icon">🛡️</div>
-        <span class="vit-risk-title">VIT Guardian: Scanning incoming message...</span>
+        <div class="vit-risk-title">
+          <span>VIT Phishing Guardian</span>
+          <span style="font-size: 11px; opacity: 0.8; font-weight: 500;">Analyzing email via AI & heuristic models...</span>
+        </div>
       </div>
     </div>
   `;
-  targetEl.parentNode.insertBefore(loadingBadge, targetEl);
+  targetEl.parentNode.insertBefore(loadingBanner, targetEl);
 
-  let result = null;
-  try {
-    const res = await fetch(`${API_ENDPOINT}/predict`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subject: subject || "",
-        sender: sender || "",
-        text: body || ""
-      })
-    });
-
-    if (res.ok) {
-      result = await res.json();
+  // 2. Send to Background Worker (Bypasses Gmail CSP & CORS)
+  chrome.runtime.sendMessage({
+    action: "PREDICT_THREAT",
+    payload: {
+      subject: subject || "",
+      sender: sender || "",
+      text: body || ""
     }
-  } catch (err) {
-    console.warn("Live API call timed out or failed. Falling back to in-browser heuristics.", err);
-  }
+  }, (response) => {
+    // Always remove loading banner
+    loadingBanner.remove();
 
-  // Fallback to local heuristic engine if API is unreachable
-  if (!result) {
-    result = runLocalHeuristics(subject, sender, body);
-  }
+    if (!response || !response.success || !response.data) {
+      console.warn("VIT Guardian: No response received from background.");
+      return;
+    }
 
-  // Remove loading badge
-  loadingBadge.remove();
+    const result = response.data;
 
-  // Create real banner
+    // Cache email data so popup can read the exact same data
+    lastScannedEmailData = {
+      subject,
+      sender,
+      body,
+      result
+    };
+
+    // 3. Inject Finalized Result Banner
+    injectResultBanner({ result, targetEl });
+  });
+}
+
+function injectResultBanner({ result, targetEl }) {
   const banner = document.createElement("div");
   const riskClass = result.risk_level === "High" ? "banner-high" : (result.risk_level === "Medium" ? "banner-med" : "banner-low");
   banner.className = `vit-guardian-email-banner ${riskClass}`;
@@ -231,7 +301,6 @@ async function analyzeAndInjectBanner({ subject, sender, body, targetEl, contain
     ${defangedHtml}
   `;
 
-  // Insert banner right above email body
   targetEl.parentNode.insertBefore(banner, targetEl);
 
   const dismissBtn = banner.querySelector("#btnDismissGuardianBanner");
@@ -239,13 +308,13 @@ async function analyzeAndInjectBanner({ subject, sender, body, targetEl, contain
     dismissBtn.addEventListener("click", () => banner.remove());
   }
 
-  // If High Risk, neutralize and highlight links inside the email body
+  // If High Risk, defang and neutralize all links inside the email body
   if (result.risk_level === "High") {
     neutralizeEmailLinks(targetEl);
   }
 }
 
-// Neutralize and defang links inside suspicious email
+// Defang and lock down clickable links in high risk email
 function neutralizeEmailLinks(bodyEl) {
   const links = bodyEl.querySelectorAll("a[href]");
   links.forEach(link => {
@@ -256,7 +325,6 @@ function neutralizeEmailLinks(bodyEl) {
       link.setAttribute("data-vit-orig-href", origHref);
       link.setAttribute("title", `DEFANGED by VIT Guardian: ${defanged}`);
 
-      // Intercept clicks
       link.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -270,55 +338,6 @@ function neutralizeEmailLinks(bodyEl) {
       });
     }
   });
-}
-
-// Helper: Local Heuristics Fallback
-function runLocalHeuristics(subject = "", sender = "", body = "") {
-  const combined = `${sender} ${subject} ${body}`.toLowerCase();
-  let score = 0.05;
-  const signals = [];
-
-  // Urgency
-  if (/immediately|within 24 hours|account suspended|final warning|urgent/i.test(combined)) {
-    score += 0.35;
-    signals.push({ signal_name: "Urgency Pressure", triggered: true, reason: "Urgency and account suspension coercion detected." });
-  }
-
-  // Credentials
-  if (/verify your password|enter otp|credentials|confirm password|atm pin|vtop portal/i.test(combined)) {
-    score += 0.40;
-    signals.push({ signal_name: "Credential Harvesting", triggered: true, reason: "Request for credentials or authentication data." });
-  }
-
-  // Lookalikes
-  const urlMatches = combined.match(/(?:https?:\/\/|www\.)[^\s<>"']+/gi) || [];
-  const defangedUrls = [];
-  urlMatches.forEach(u => {
-    defangedUrls.push(defangUrl(u));
-    if ((u.includes("vit") || u.includes("vtop")) && !u.includes("vit.ac.in") && !u.includes("vitstudent.ac.in")) {
-      score += 0.45;
-      signals.push({ signal_name: "Lookalike Domain", triggered: true, reason: `University lookalike link detected in message: ${defangUrl(u)}` });
-    }
-  });
-
-  // Sender spoofing
-  if (sender && (sender.includes("vit") || sender.includes("vtop") || sender.includes("admin")) && !sender.includes("vit.ac.in")) {
-    score += 0.35;
-    signals.push({ signal_name: "Sender Impersonation", triggered: true, reason: "Claims official affiliation from non-university domain." });
-  }
-
-  score = Math.min(0.98, Math.max(0.04, score));
-  const risk_level = score > 0.65 ? "High" : (score >= 0.35 ? "Medium" : "Low");
-
-  return {
-    probability: score,
-    risk_level,
-    verdict_summary: risk_level === "High"
-      ? "Warning: High risk detected! This message contains coercive urgency or credential theft vectors."
-      : (risk_level === "Medium" ? "Caution: Contains ambiguous urgency or unverified external links." : "Low Risk: Aligns with normal communications."),
-    signals,
-    defanged_urls: defangedUrls
-  };
 }
 
 function defangUrl(url) {

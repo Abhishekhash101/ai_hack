@@ -174,7 +174,42 @@ async function scanCurrentPage() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id) throw new Error("No active tab accessible");
 
-    // Injected extraction
+    // First check if active tab is an email client (Gmail / Outlook)
+    let emailResponse = null;
+    try {
+      emailResponse = await new Promise(resolve => {
+        chrome.tabs.sendMessage(tab.id, { action: "GET_CURRENT_EMAIL_DATA" }, res => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(res);
+        });
+      });
+    } catch (e) {}
+
+    if (emailResponse && emailResponse.isEmailView && emailResponse.emailData) {
+      const eData = emailResponse.emailData;
+      const targetUrlEl = document.getElementById("currentTabUrl");
+      if (targetUrlEl) {
+        targetUrlEl.textContent = `Email: ${eData.subject || "No Subject"} (${eData.sender || "Unknown"})`;
+        targetUrlEl.title = `${eData.sender} - ${eData.subject}`;
+      }
+
+      // If content script already has the exact result, synchronize immediately
+      if (emailResponse.lastResult) {
+        renderResults(emailResponse.lastResult);
+        return;
+      }
+
+      // Otherwise analyze the specific email text
+      const analysis = await analyzeThreat({
+        text: eData.body,
+        subject: eData.subject,
+        sender: eData.sender
+      });
+      renderResults(analysis);
+      return;
+    }
+
+    // Normal webpage extraction
     const injectionResults = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => {
@@ -212,7 +247,6 @@ async function scanCurrentPage() {
     renderResults(analysis);
   } catch (err) {
     console.error("Scan error:", err);
-    // Fallback to active tab URL only
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const analysis = await analyzeThreat({
       text: tab ? tab.title : "",
@@ -258,30 +292,28 @@ async function analyzeManualInput() {
   }
 }
 
-// Master Threat Analyzer (Backend API with Local Fallback)
+// Master Threat Analyzer (Delegates to Background Worker with Local Fallback)
 async function analyzeThreat(payload) {
-  // Try remote API first
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
-
-    const res = await fetch(`${currentConfig.apiUrl}/predict`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal
+    const response = await new Promise(resolve => {
+      chrome.runtime.sendMessage({
+        action: "PREDICT_THREAT",
+        payload
+      }, res => {
+        if (chrome.runtime.lastError || !res || !res.success) {
+          resolve(null);
+        } else {
+          resolve(res.data);
+        }
+      });
     });
-    clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const data = await res.json();
-      return data;
-    }
+    if (response) return response;
   } catch (err) {
-    console.warn("Backend API call failed or timed out. Falling back to local heuristics.", err);
+    console.warn("Background threat analysis failed:", err);
   }
 
-  // Fallback to local heuristic engine
+  // Direct fallback
   return runLocalHeuristicEngine(payload);
 }
 
