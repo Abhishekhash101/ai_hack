@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIT Phishing Guardian</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-branding">
+        <div class="shield-logo">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4" stroke-width="2.5"/>
+          </svg>
+        </div>
+        <div class="branding-text">
+          <h1>VIT Guardian</h1>
+          <span class="sub-badge">AI Defense</span>
+        </div>
+      </div>
+      <div class="status-indicator" id="apiStatusBadge" title="API Status: Connecting...">
+        <span class="status-dot online" id="statusDot"></span>
+        <span class="status-text" id="statusText">Active</span>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-quick">Quick Scan</button>
+      <button class="tab-btn" data-tab="tab-manual">Inspect Text</button>
+      <button class="tab-btn" data-tab="tab-settings">Settings</button>
+    </nav>
+
+    <!-- Tab 1: Quick Scan Active Page -->
+    <section class="tab-content active" id="tab-quick">
+      <div class="card scan-card">
+        <div class="page-meta">
+          <span class="label-tiny">ACTIVE TARGET</span>
+          <p class="target-url" id="currentTabUrl">Scanning active tab...</p>
+        </div>
+        <button id="btnScanCurrentPage" class="primary-btn pulse-glow">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Scan Active Webpage / Email
+        </button>
+      </div>
+
+      <!-- Quick Scan Status/Loading -->
+      <div id="quickLoading" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p>Analyzing textual heuristics & domain patterns...</p>
+      </div>
+
+      <!-- Results Section -->
+      <div id="resultsContainer" class="results-wrapper hidden">
+        <div class="risk-card" id="riskCard">
+          <div class="risk-header">
+            <div>
+              <span class="risk-tier-label" id="riskTierLabel">HIGH RISK</span>
+              <p class="risk-score" id="riskScorePercent">94.8%</p>
+            </div>
+            <div class="meter-ring" id="meterRing">
+              <span id="riskMeterVal">95%</span>
+            </div>
+          </div>
+          <p class="verdict-text" id="verdictSummary">Coercive urgency and university lookalike domain detected.</p>
+        </div>
+
+        <!-- Triggered Signals Accordion -->
+        <div class="section-box">
+          <div class="section-title">Security Signals Identified</div>
+          <div class="signals-list" id="signalsList">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Defanged URLs Block -->
+        <div class="section-box" id="defangedSection">
+          <div class="section-title">
+            <span>Defanged Inert URLs</span>
+            <button class="btn-copy-all" id="btnCopyDefanged">Copy</button>
+          </div>
+          <div class="defanged-list" id="defangedList">
+            <!-- Defanged URLs inserted here -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Manual Email / Text Inspection -->
+    <section class="tab-content" id="tab-manual">
+      <div class="sample-actions">
+        <button class="chip-btn" id="btnSamplePhish">Phishing Sample</button>
+        <button class="chip-btn" id="btnSampleLegit">Legit Circular</button>
+      </div>
+
+      <div class="form-group">
+        <label for="inputSender">Sender Header (Display Name & Email)</label>
+        <input type="text" id="inputSender" placeholder="e.g. VIT Admin <admin@vtop-security.example>">
+      </div>
+
+      <div class="form-group">
+        <label for="inputSubject">Subject Line</label>
+        <input type="text" id="inputSubject" placeholder="e.g. URGENT: VTOP Account Suspended">
+      </div>
+
+      <div class="form-group">
+        <label for="inputBody">Message Body / Content</label>
+        <textarea id="inputBody" rows="4" placeholder="Paste incoming message body or suspicious link..."></textarea>
+      </div>
+
+      <button id="btnAnalyzeManual" class="primary-btn">
+        Evaluate Threat Risk
+      </button>
+    </section>
+
+    <!-- Tab 3: Settings & Render Backend Config -->
+    <section class="tab-content" id="tab-settings">
+      <div class="settings-card">
+        <h3>Backend API Connection</h3>
+        <p class="help-text">Connect the extension to your deployed API on Render or use local fallback.</p>
+
+        <div class="form-group">
+          <label for="backendUrlInput">API Endpoint URL</label>
+          <input type="url" id="backendUrlInput" value="http://localhost:8000" placeholder="https://your-service.onrender.com">
+        </div>
+
+        <div class="btn-row">
+          <button id="btnSaveSettings" class="secondary-btn">Save API URL</button>
+          <button id="btnTestApi" class="secondary-btn">Test Ping</button>
+        </div>
+
+        <div id="pingResult" class="ping-box hidden"></div>
+
+        <hr class="divider">
+
+        <div class="toggle-group">
+          <div>
+            <div class="toggle-title">Client-Side Heuristic Fallback</div>
+            <div class="toggle-sub">Analyzes links and urgency locally if backend is sleeping.</div>
+          </div>
+          <input type="checkbox" id="chkLocalFallback" checked>
+        </div>
+
+        <div class="render-info-box">
+          <strong>Deploying on Render?</strong>
+          <p>Render's free tier spins down after 15 mins of inactivity. When called, the first request may take 30-50s to wake up. Local fallback ensures instant results while waking.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>Zero Execution Risk &bull; Passive String Analysis</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
