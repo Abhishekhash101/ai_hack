@@ -1,0 +1,221 @@
+/* content.css - In-page & Email Security Banner Styles */
+
+/* Injected Email Security Banner */
+.vit-guardian-email-banner {
+  margin: 12px 0 16px 0 !important;
+  padding: 14px 18px !important;
+  border-radius: 10px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+  transition: all 0.3s ease !important;
+  z-index: 100 !important;
+  line-height: 1.4 !important;
+}
+
+/* High Risk Banner */
+.vit-guardian-email-banner.banner-high {
+  background: #fef2f2 !important;
+  border: 1.5px solid #ef4444 !important;
+  border-left: 6px solid #dc2626 !important;
+  color: #991b1b !important;
+}
+
+/* Medium Risk Banner */
+.vit-guardian-email-banner.banner-med {
+  background: #fffbeb !important;
+  border: 1.5px solid #f59e0b !important;
+  border-left: 6px solid #d97706 !important;
+  color: #92400e !important;
+}
+
+/* Low Risk Banner */
+.vit-guardian-email-banner.banner-low {
+  background: #f0fdf4 !important;
+  border: 1.5px solid #22c55e !important;
+  border-left: 6px solid #16a34a !important;
+  color: #166534 !important;
+}
+
+/* Banner Header */
+.vit-banner-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 8px !important;
+}
+
+.vit-banner-branding {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.vit-shield-icon {
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  flex-shrink: 0 !important;
+}
+
+.banner-high .vit-shield-icon {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.banner-med .vit-shield-icon {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.banner-low .vit-shield-icon {
+  background: #16a34a !important;
+  color: #ffffff !important;
+}
+
+.vit-risk-title {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.3px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.vit-risk-badge {
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+}
+
+.banner-high .vit-risk-badge {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.banner-med .vit-risk-badge {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.banner-low .vit-risk-badge {
+  background: #16a34a !important;
+  color: #ffffff !important;
+}
+
+.vit-banner-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.vit-banner-btn {
+  background: rgba(0, 0, 0, 0.06) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: inherit !important;
+  padding: 4px 10px !important;
+  border-radius: 5px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.vit-banner-btn:hover {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Summary Text */
+.vit-banner-summary {
+  font-size: 12.5px !important;
+  margin-bottom: 8px !important;
+  line-height: 1.45 !important;
+}
+
+/* Signals list */
+.vit-signals-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  margin: 6px 0 !important;
+  font-size: 12px !important;
+}
+
+.vit-signal-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+}
+
+.vit-signal-item strong {
+  font-weight: 700 !important;
+}
+
+/* Defanged Links List */
+.vit-defanged-box {
+  margin-top: 8px !important;
+  padding: 8px 10px !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-radius: 6px !important;
+  border: 1px dashed rgba(0, 0, 0, 0.15) !important;
+  font-size: 11.5px !important;
+}
+
+.vit-defanged-box-title {
+  font-weight: 700 !important;
+  margin-bottom: 4px !important;
+}
+
+.vit-defanged-link-item {
+  font-family: monospace !important;
+  word-break: break-all !important;
+  color: #dc2626 !important;
+  background: #ffffff !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  display: inline-block !important;
+  margin: 2px 0 !important;
+  border: 1px solid rgba(220, 38, 38, 0.2) !important;
+}
+
+/* Highlighted suspicious link in email body */
+.vit-guardian-defanged-link {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+  border-bottom: 2px dashed #dc2626 !important;
+  padding: 1px 4px !important;
+  border-radius: 3px !important;
+  cursor: not-allowed !important;
+  position: relative !important;
+}
+
+/* Floating Guardian Widget for any page */
+#vit-guardian-floating-widget {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  z-index: 99999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: linear-gradient(135deg, #1e3a8a 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  padding: 8px 14px !important;
+  border-radius: 24px !important;
+  box-shadow: 0 4px 16px rgba(3, 105, 161, 0.35) !important;
+  cursor: pointer !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.2s ease !important;
+}
+
+#vit-guardian-floating-widget:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 20px rgba(3, 105, 161, 0.5) !important;
+}
