@@ -236,13 +236,24 @@ function analyzeAndInjectBanner({ subject, sender, body, targetEl, containerEl }
 
     const result = response.data;
 
-    // Cache email data so popup can read the exact same data
+    // Cache email data in memory and persistent storage for instant popup sync
     lastScannedEmailData = {
       subject,
       sender,
       body,
       result
     };
+
+    chrome.storage.local.set({
+      latestEmailScan: {
+        url: window.location.href,
+        subject,
+        sender,
+        body,
+        result,
+        timestamp: Date.now()
+      }
+    });
 
     // 3. Inject Finalized Result Banner
     injectResultBanner({ result, targetEl });

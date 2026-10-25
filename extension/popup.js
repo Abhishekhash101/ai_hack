@@ -47,15 +47,34 @@ function initTabs() {
   });
 }
 
-// Display Current Tab Info
+// Display Current Tab Info & Auto-Sync with Active Email
 async function initActiveTabPreview() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const targetUrlEl = document.getElementById("currentTabUrl");
-    if (tab && targetUrlEl) {
-      targetUrlEl.textContent = tab.url || "about:blank";
-      targetUrlEl.title = tab.url;
-    }
+    if (!tab) return;
+
+    // Check if we have a fresh scan for this email in storage
+    chrome.storage.local.get(["latestEmailScan"], (data) => {
+      const scan = data ? data.latestEmailScan : null;
+      const isEmailTab = tab.url && (tab.url.includes("mail.google.com") || tab.url.includes("outlook"));
+
+      if (scan && isEmailTab && scan.result) {
+        // Display email subject and sender in the target box
+        const displayLabel = scan.subject ? `Email: "${scan.subject}" (${scan.sender || "Unknown"})` : "Active Email";
+        if (targetUrlEl) {
+          targetUrlEl.textContent = displayLabel;
+          targetUrlEl.title = `${scan.sender} - ${scan.subject}`;
+        }
+        // Auto-render the exact same analysis result instantly
+        renderResults(scan.result);
+      } else {
+        if (targetUrlEl) {
+          targetUrlEl.textContent = tab.url || "about:blank";
+          targetUrlEl.title = tab.url;
+        }
+      }
+    });
   } catch (err) {
     console.error("Tab query failed:", err);
   }
@@ -189,23 +208,36 @@ async function scanCurrentPage() {
       const eData = emailResponse.emailData;
       const targetUrlEl = document.getElementById("currentTabUrl");
       if (targetUrlEl) {
-        targetUrlEl.textContent = `Email: ${eData.subject || "No Subject"} (${eData.sender || "Unknown"})`;
+        targetUrlEl.textContent = `Email: "${eData.subject || "No Subject"}" (${eData.sender || "Unknown"})`;
         targetUrlEl.title = `${eData.sender} - ${eData.subject}`;
       }
 
-      // If content script already has the exact result, synchronize immediately
       if (emailResponse.lastResult) {
         renderResults(emailResponse.lastResult);
         return;
       }
 
-      // Otherwise analyze the specific email text
       const analysis = await analyzeThreat({
         text: eData.body,
         subject: eData.subject,
         sender: eData.sender
       });
       renderResults(analysis);
+      return;
+    }
+
+    // Storage fallback for email tabs (in case message port is detached)
+    const stored = await new Promise(resolve => {
+      chrome.storage.local.get(["latestEmailScan"], data => resolve(data ? data.latestEmailScan : null));
+    });
+    const isEmailTab = tab.url && (tab.url.includes("mail.google.com") || tab.url.includes("outlook"));
+    if (stored && isEmailTab && stored.result) {
+      const targetUrlEl = document.getElementById("currentTabUrl");
+      if (targetUrlEl) {
+        targetUrlEl.textContent = `Email: "${stored.subject}" (${stored.sender || "Unknown"})`;
+        targetUrlEl.title = `${stored.sender} - ${stored.subject}`;
+      }
+      renderResults(stored.result);
       return;
     }
 
