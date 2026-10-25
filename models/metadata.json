@@ -1,0 +1,44 @@
+{
+  "project": "VIT Phishing Message Awareness & Detection Prototype",
+  "dataset": "Kaggle Phishing Email Dataset (Naser Abdullah Alam) + Held-out VIT Test Set",
+  "training_samples": 65662,
+  "test_samples": 15797,
+  "vit_test_samples": 120,
+  "features": {
+    "tfidf_ngram_range": [
+      1,
+      2
+    ],
+    "tfidf_max_features": 50000,
+    "signal_features": [
+      "urgency",
+      "credential_request",
+      "suspicious_link",
+      "sender_mismatch",
+      "generic_style",
+      "url_count",
+      "excl_count"
+    ]
+  },
+  "risk_thresholds": {
+    "low_upper": 0.35,
+    "medium_upper": 0.65
+  },
+  "public_test_metrics": {
+    "Accuracy": 0.9860100018990947,
+    "Precision": 0.9847922404502455,
+    "Recall": 0.9886992065400336,
+    "F1-Score": 0.9867418561401404,
+    "ROC-AUC": 0.9986949111113747
+  },
+  "vit_test_metrics": {
+    "Accuracy": 0.7583333333333333,
+    "Precision": 0.7719298245614035,
+    "Recall": 0.7333333333333333,
+    "F1-Score": 0.7521367521367521,
+    "ROC-AUC": 0.8327777777777778
+  },
+  "cv_f1_mean": 0.9882045433658465,
+  "cv_f1_std": 0.0006664212043142319,
+  "model_type": "LogisticRegression(class_weight='balanced', max_iter=1000)"
+}

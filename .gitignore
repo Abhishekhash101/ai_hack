@@ -1,0 +1,91 @@
+# ==========================================
+# Virtual Environments & Python Runtime
+# ==========================================
+.venv
+.venv/
+.venv/**
+venv
+venv/
+venv/**
+env
+env/
+env/**
+ENV
+ENV/
+ENV/**
+.env
+.env.*
+*.env
+*.env.*
+pyvenv.cfg
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==========================================
+# Jupyter Notebooks
+# ==========================================
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# ==========================================
+# Large Datasets (>100MB exceeds GitHub limits)
+# ==========================================
+dataset/
+dataset/**
+data/processed/
+data/processed/**
+data/*.csv
+# Preserve small held-out scenario test set (36KB) for reproducible evaluation
+!data/vit_test.csv
+
+# ==========================================
+# IDEs & Editors
+# ==========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# ==========================================
+# OS Generated Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==========================================
+# Logs & Temporary Files
+# ==========================================
+*.log
+*.tmp
+scratch/
+tmp/

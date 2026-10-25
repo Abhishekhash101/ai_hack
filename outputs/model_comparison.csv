@@ -1,0 +1,3 @@
+Model,Accuracy,Precision,Recall,F1-Score,ROC-AUC,5-Fold CV F1
+Baseline (TF-IDF Only),98.72%,98.58%,99.00%,98.79%,99.89%,98.72% (+/- 0.14%)
+Combined (TF-IDF + Signals),98.60%,98.48%,98.87%,98.67%,99.87%,98.82% (+/- 0.07%)
