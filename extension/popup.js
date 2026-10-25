@@ -1,6 +1,4 @@
-// popup.js - Interactive logic for VIT Phishing Guardian Chrome Extension
-
-const DEFAULT_API_URL = "http://localhost:8000";
+const DEFAULT_API_URL = "https://vit-phishing-detector-api.onrender.com";
 
 let currentConfig = {
   apiUrl: DEFAULT_API_URL,
